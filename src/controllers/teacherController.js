@@ -107,14 +107,25 @@ exports.getGradingModules = async (req, res) => {
 };
 
 // 5. DAFTAR JAWABAN SISWA PER MATERI
+// 5. DAFTAR JAWABAN SISWA PER MATERI (DENGAN HITUNGAN TOTAL COMPILE DARI STUDENT_ATTEMPTS)
 exports.getSubmissionsByMateri = async (req, res) => {
   const { materiId } = req.params;
   try {
     const query = `
       SELECT 
-        ss.id as submission_id, u.name as student_name, 
-        ss.content, ss.status, ss.score, ss.feedback,
-        a.instruction as task_instruction
+        ss.id as submission_id, 
+        u.name as student_name, 
+        ss.content, 
+        ss.status, 
+        ss.score, 
+        ss.feedback,
+        a.instruction as task_instruction,
+        -- SUBQUERY: Menghitung total baris aktivitas compile siswa dari tabel student_attempts
+        (
+          SELECT COUNT(*)::int 
+          FROM student_attempts 
+          WHERE user_id = ss.user_id AND materi_id = ss.materi_id
+        ) as compile_count
       FROM student_submissions ss
       JOIN users u ON ss.user_id = u.id
       JOIN assignments a ON ss.materi_id = a.materi_id
