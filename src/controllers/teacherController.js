@@ -217,6 +217,7 @@ exports.getTestResults = async (req, res) => {
   }
 };
 
+// 10. ANALYTICS SISWA PER MATERI (PROGRESS & KOMPETENSI)
 exports.getStudentAnalytics = async (req, res) => {
   const { studentId } = req.params;
 
@@ -242,12 +243,13 @@ exports.getStudentAnalytics = async (req, res) => {
       let totalAchieved = 0;
 
       const analyticsData = result.rows.map(row => {
-          // ✅ PERBAIKAN: Pastikan data adalah array (handle native postgres array format)
           const totalArr = Array.isArray(row.total_objectives) ? row.total_objectives : [];
           const achievedArr = Array.isArray(row.achieved_objectives) ? row.achieved_objectives : [];
           
-          totalIndicators += totalArr.length;
-          totalAchieved += achievedArr.length;
+          if (totalArr.length > 0) {
+              totalIndicators += totalArr.length;
+              totalAchieved += achievedArr.length;
+          }
 
           return {
               materi_id: row.materi_id,
@@ -257,7 +259,7 @@ exports.getStudentAnalytics = async (req, res) => {
               progress: {
                   total: totalArr.length,
                   achieved: achievedArr.length,
-                  percent: totalArr.length > 0 ? Math.round((achievedArr.length / totalArr.length) * 100) : 0
+                  percent: totalArr.length > 0 ? Math.round((achievedArr.length / totalArr.length) * 100) : 100
               },
               details: {
                   all_indicators: totalArr,
@@ -272,7 +274,7 @@ exports.getStudentAnalytics = async (req, res) => {
           summary: {
               total_materi: analyticsData.length,
               materi_finished: analyticsData.filter(d => d.status === 'submitted' || d.status === 'graded').length,
-              overall_competency_percent: totalIndicators > 0 ? Math.round((totalAchieved / totalIndicators) * 100) : 0
+              overall_competency_percent: totalIndicators > 0 ? Math.round((totalAchieved / totalIndicators) * 100) : 100
           },
           data: analyticsData
       });
@@ -283,6 +285,7 @@ exports.getStudentAnalytics = async (req, res) => {
   }
 };
 
+// 11. ANALYTICS KOMPETENSI KELAS PER MATERI (RATA-RATA PENCAPAIAN INDIKATOR)
 exports.getClassCompetencyStats = async (req, res) => {
   try {
     const query = `
@@ -292,6 +295,7 @@ exports.getClassCompetencyStats = async (req, res) => {
           m.title as materi_title,
           jsonb_array_elements_text(m.learning_objectives::jsonb) as indicator_name
         FROM materi m
+        WHERE m.learning_objectives IS NOT NULL AND jsonb_array_length(m.learning_objectives::jsonb) > 0
       ),
       achievements AS (
         SELECT 
