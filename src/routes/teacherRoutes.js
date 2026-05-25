@@ -11,6 +11,7 @@ const {
   getCourseProgressStats, 
   getStudentProgress,
   getStudentAnalytics,
+  getStudentReflections,
   getGradingModules, 
   getSubmissionsByMateri, 
   updateGrade, 
@@ -56,6 +57,7 @@ router.get("/course-progress/:courseId", getCourseProgressStats);
 router.get("/students-monitor", getStudentProgress);
 router.get("/analytics/:studentId", getStudentAnalytics);
 router.get("/class-competency", getClassCompetencyStats);
+router.get("/reflections/:studentId", getStudentReflections);
 
 
 // --- 6. GRADING SYSTEM (Tugas Coding/Flowchart) ---

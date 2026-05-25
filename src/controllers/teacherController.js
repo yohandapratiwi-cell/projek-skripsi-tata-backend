@@ -347,3 +347,58 @@ exports.getClassCompetencyStats = async (req, res) => {
     });
   }
 };
+
+exports.getStudentReflections = async (req, res) => {
+  const { studentId } = req.params;
+
+  try {
+    const query = `
+      SELECT 
+        ss.id as submission_id,
+        m.id as materi_id,
+        m.title as materi_title,
+        mod.title as module_title,
+        ss.content,
+        ss.updated_at as completed_at
+      FROM student_submissions ss
+      JOIN materi m ON ss.materi_id = m.id
+      JOIN modules mod ON m.module_id = mod.id
+      WHERE ss.user_id = $1 AND ss.content IS NOT NULL
+      ORDER BY mod.module_order ASC, m.order_number ASC;
+    `;
+
+    const result = await pool.query(query, [studentId]);
+
+    const reflectionData = result.rows
+      .map(row => {
+        try {
+          const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          
+          if (!parsed || !parsed.reflection || parsed.reflection.trim() === "") {
+            return null;
+          }
+
+          return {
+            submission_id: row.submission_id,
+            materi_id: row.materi_id,
+            materi_title: row.materi_title,
+            module_title: row.module_title,
+            reflection: parsed.reflection,
+            completed_at: row.completed_at
+          };
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter(item => item !== null);
+
+    res.json({
+      status: "success",
+      data: reflectionData
+    });
+
+  } catch (err) {
+    console.error("REFLECTION FETCH ERROR:", err.message);
+    res.status(500).json({ error: "Gagal memuat data refleksi siswa" });
+  }
+};
