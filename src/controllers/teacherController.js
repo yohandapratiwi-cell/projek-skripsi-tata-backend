@@ -402,3 +402,104 @@ exports.getStudentReflections = async (req, res) => {
     res.status(500).json({ error: "Gagal memuat data refleksi siswa" });
   }
 };
+
+// 12. AMBIL DATA REFLEKSI (DENGAN COALESCE DATA TEACHER_FEEDBACK)
+exports.getStudentReflections = async (req, res) => {
+  const { studentId } = req.params;
+
+  try {
+    const query = `
+      SELECT 
+        ss.id as submission_id,
+        m.id as materi_id,
+        m.title as materi_title,
+        mod.title as module_title,
+        ss.content,
+        ss.updated_at as completed_at
+      FROM student_submissions ss
+      JOIN materi m ON ss.materi_id = m.id
+      JOIN modules mod ON m.module_id = mod.id
+      WHERE ss.user_id = $1 AND ss.content IS NOT NULL
+      ORDER BY mod.module_order ASC, m.order_number ASC;
+    `;
+
+    const result = await pool.query(query, [studentId]);
+
+    const reflectionData = result.rows
+      .map(row => {
+        try {
+          const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          
+          if (!parsed || !parsed.reflection || parsed.reflection.trim() === "") {
+            return null;
+          }
+
+          return {
+            submission_id: row.submission_id,
+            materi_id: row.materi_id,
+            materi_title: row.materi_title,
+            module_title: row.module_title,
+            reflection: parsed.reflection,
+            teacher_feedback: parsed.teacher_feedback || "",
+            completed_at: row.completed_at
+          };
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter(item => item !== null);
+
+    res.json({
+      status: "success",
+      data: reflectionData
+    });
+
+  } catch (err) {
+    console.error("REFLECTION FETCH ERROR:", err.message);
+    res.status(500).json({ error: "Gagal memuat data refleksi siswa" });
+  }
+};
+
+exports.updateReflectionFeedback = async (req, res) => {
+  const { submissionId } = req.params;
+  const { feedback } = req.body;
+
+  try {
+    const selectRes = await pool.query(
+      "SELECT content FROM student_submissions WHERE id = $1",
+      [submissionId]
+    );
+
+    if (selectRes.rows.length === 0) {
+      return res.status(404).json({ error: "Data submission tidak ditemukan" });
+    }
+
+    const currentContent = typeof selectRes.rows[0].content === 'string'
+      ? JSON.parse(selectRes.rows[0].content)
+      : selectRes.rows[0].content;
+
+    const updatedContent = {
+      ...currentContent,
+      teacher_feedback: feedback,
+      feedback_updated_at: new Date()
+    };
+
+    const updateQuery = `
+      UPDATE student_submissions
+      SET content = $1, updated_at = NOW()
+      WHERE id = $2
+      RETURNING *;
+    `;
+
+    await pool.query(updateQuery, [JSON.stringify(updatedContent), submissionId]);
+
+    res.json({ 
+      status: "success", 
+      message: "Umpan balik refleksi berhasil dikirim!" 
+    });
+
+  } catch (error) {
+    console.error("FEEDBACK UPDATE ERROR:", error.message);
+    res.status(500).json({ error: "Gagal memperbarui umpan balik guru" });
+  }
+};

@@ -15,7 +15,8 @@ const {
   getGradingModules, 
   getSubmissionsByMateri, 
   updateGrade, 
-  upsertAssignment, 
+  upsertAssignment,
+  updateReflectionFeedback,
   deleteAssignment, 
   getTestResults ,
 } = require("../controllers/teacherController");
@@ -58,7 +59,7 @@ router.get("/students-monitor", getStudentProgress);
 router.get("/analytics/:studentId", getStudentAnalytics);
 router.get("/class-competency", getClassCompetencyStats);
 router.get("/reflections/:studentId", getStudentReflections);
-
+router.put("/reflections/feedback/:submissionId", updateReflectionFeedback);
 
 // --- 6. GRADING SYSTEM (Tugas Coding/Flowchart) ---
 // Rute ini untuk list Sub-Bab yang ada tugasnya
