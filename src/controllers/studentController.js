@@ -270,7 +270,7 @@ exports.getOverallProgress = async (req, res) => {
     }
   };
 
-// 9. AMBIL CHALLENGES (MODIFIKASI: Mendukung Post-test & Lock Logic)
+// 9. AMBIL CHALLENGES (MODIFIKASI: Hanya menghitung materi yang memilik tugas agar post-test bisa terbuka)
 exports.getChallenges = async (req, res) => {
     const userId = req.user.id;
     try {
@@ -288,15 +288,18 @@ exports.getChallenges = async (req, res) => {
             SELECT 1 FROM test_submissions ts 
             WHERE ts.test_id = t.id AND ts.user_id = $1
           ) AS is_completed,
-          -- Logic Unlock: Jika pretest otomatis TRUE, jika posttest cek apakah materi sudah selesai semua
+          -- Logic Unlock: Jika pretest otomatis TRUE, jika posttest cek apakah semua materi YANG BERTUGAS sudah diselesaikan
           CASE 
             WHEN t.type = 'pretest' THEN TRUE
             ELSE (
+              -- ✅ SEKARANG: Hanya menghitung materi yang memang memiliki tugas/assignment (Hasilnya akan bernilai 41)
               SELECT COUNT(DISTINCT m.id) 
               FROM materi m 
               JOIN modules mod ON m.module_id = mod.id 
+              JOIN assignments a ON m.id = a.materi_id -- Mengunci filter hanya pada materi bertugas
               WHERE mod.course_id = c.id
             ) = (
+              -- Menghitung jumlah tugas materi kelas ini yang sudah dikirim oleh siswa (Hasilnya bernilai 41)
               SELECT COUNT(DISTINCT ss.materi_id) 
               FROM student_submissions ss
               JOIN materi m2 ON ss.materi_id = m2.id
@@ -315,7 +318,6 @@ exports.getChallenges = async (req, res) => {
       res.status(500).json({ error: "Gagal memuat data tantangan" });
     }
 };
-
 
 // Tambahkan fungsi ini di studentController.js
 exports.getStudentStats = async (req, res) => {
