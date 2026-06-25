@@ -283,29 +283,24 @@ exports.getChallenges = async (req, res) => {
           t.type AS test_type,
           t.duration,
           (SELECT COUNT(*) FROM questions q WHERE q.test_id = t.id) AS total_questions,
-          -- Cek apakah sudah selesai dikerjakan
           EXISTS (
             SELECT 1 FROM test_submissions ts 
             WHERE ts.test_id = t.id AND ts.user_id = $1
           ) AS is_completed,
-          -- Logic Unlock: Jika pretest otomatis TRUE, jika posttest cek apakah semua materi YANG BERTUGAS sudah diselesaikan
           CASE 
             WHEN t.type = 'pretest' THEN TRUE
             ELSE (
-              -- ✅ SEKARANG: Hanya menghitung materi yang memang memiliki tugas/assignment (Hasilnya akan bernilai 41)
-              SELECT COUNT(DISTINCT m.id) 
-              FROM materi m 
-              JOIN modules mod ON m.module_id = mod.id 
-              JOIN assignments a ON m.id = a.materi_id -- Mengunci filter hanya pada materi bertugas
+              SELECT COUNT(*) 
+              FROM assignments a
+              JOIN materi m ON a.materi_id = m.id
+              JOIN modules mod ON m.module_id = mod.id
               WHERE mod.course_id = c.id
-            ) = (
-              -- Menghitung jumlah tugas materi kelas ini yang sudah dikirim oleh siswa (Hasilnya bernilai 41)
-              SELECT COUNT(DISTINCT ss.materi_id) 
-              FROM student_submissions ss
-              JOIN materi m2 ON ss.materi_id = m2.id
-              JOIN modules mod2 ON m2.module_id = mod2.id
-              WHERE mod2.course_id = c.id AND ss.user_id = $1
-            )
+                AND NOT EXISTS (
+                  SELECT 1 
+                  FROM student_submissions ss 
+                  WHERE ss.materi_id = m.id AND ss.user_id = $1
+                )
+            ) = 0
           END AS is_unlocked
         FROM courses c
         JOIN tests t ON c.id = t.course_id
@@ -317,7 +312,7 @@ exports.getChallenges = async (req, res) => {
       console.error("GET CHALLENGES ERROR:", error.message);
       res.status(500).json({ error: "Gagal memuat data tantangan" });
     }
-};
+  };
 
 // Tambahkan fungsi ini di studentController.js
 exports.getStudentStats = async (req, res) => {
